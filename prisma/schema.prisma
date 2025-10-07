@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  password           String?
+  name               String?
+  image              String?
+  emailVerified      DateTime?
+  isInstructor       Boolean   @default(false)
+  bio                String?
+  location           String?
+  latitude           Float?
+  longitude          Float?
+  hourlyRate         Float?
+  subscriptionStatus String    @default("inactive")
+  subscriptionEnd    DateTime?
+  stripeCustomerId   String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  skills        UserSkill[]
+  sentRequests  FriendRequest[] @relation("Sender")
+  receivedRequests FriendRequest[] @relation("Receiver")
+  sentMeetings  Meeting[] @relation("Organizer")
+  attendedMeetings Meeting[] @relation("Attendee")
+}
+
+model Skill {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  category    String
+  description String?
+  createdAt   DateTime    @default(now())
+  
+  userSkills  UserSkill[]
+}
+
+model UserSkill {
+  id           String @id @default(cuid())
+  userId       String
+  skillId      String
+  level        String // "beginner", "intermediate", "advanced", "expert"
+  yearsOfExperience Int?
+  description  String?
+  
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill        Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, skillId])
+}
+
+model FriendRequest {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  status     String   @default("pending") // "pending", "accepted", "declined"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  sender     User     @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User     @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  
+  @@unique([senderId, receiverId])
+}
+
+model Meeting {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  zoomMeetingId String?
+  zoomJoinUrl String?
+  organizerId String
+  attendeeId  String
+  status      String   @default("scheduled") // "scheduled", "completed", "cancelled"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  organizer   User     @relation("Organizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  attendee    User     @relation("Attendee", fields: [attendeeId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
