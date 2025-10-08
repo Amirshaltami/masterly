@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
-import { prisma } from "../../lib/prisma"
+import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { sendVerificationEmail } from "@/lib/mail"
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -10,13 +11,15 @@ const registerSchema = z.object({
   isInstructor: z.boolean().default(false),
   bio: z.string().optional(),
   location: z.string().optional(),
-  hourlyRate: z.number().optional()
+  hourlyRate: z.number().optional(),
+  zoomLink: z.string().optional()
 })
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { email, password, name, isInstructor, bio, location, hourlyRate } = registerSchema.parse(body)
+  const { email, password, name, isInstructor, bio, location, hourlyRate, zoomLink } = registerSchema.parse(body)
+  const skill = body.skill;
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -42,9 +45,34 @@ export async function POST(req: NextRequest) {
         isInstructor,
         bio,
         location,
-        hourlyRate
+        hourlyRate,
+        zoomLink,
       }
     })
+
+    // Add skill to UserSkill table if provided
+    if (skill && typeof skill === "string" && skill.length > 0) {
+      // Find or create the skill
+      let skillRecord = await prisma.skill.findUnique({ where: { name: skill } });
+      if (!skillRecord) {
+        skillRecord = await prisma.skill.create({ data: { name: skill, category: "General" } });
+      }
+      await prisma.userSkill.create({
+        data: {
+          userId: user.id,
+          skillId: skillRecord.id,
+          level: "beginner",
+          yearsOfExperience: 0,
+        }
+      });
+    }
+
+    // Send welcome email
+    try {
+      await sendVerificationEmail(email, "");
+    } catch (e) {
+      console.error("Failed to send welcome email:", e);
+    }
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user

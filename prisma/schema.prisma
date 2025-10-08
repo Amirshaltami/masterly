@@ -50,6 +50,7 @@ model User {
   subscriptionStatus String    @default("inactive")
   subscriptionEnd    DateTime?
   stripeCustomerId   String?
+  zoomLink           String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
