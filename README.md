@@ -20,6 +20,24 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Security (NIST-inspired hardening)
+
+This project includes a set of security improvements inspired by NIST guidance to reduce the risk of common authentication and web vulnerabilities. These measures are intended for development and early staging; review and adapt them for production.
+
+- HTTP security headers: `src/middleware.ts` sets a Content Security Policy (CSP), `Strict-Transport-Security` (HSTS), `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and a basic `Permissions-Policy`. Review and tune the CSP to match any third-party scripts or assets you use.
+- Rate limiting: `src/lib/rateLimiter.ts` provides an in-memory limiter used by registration and login flows to slow automated attacks and brute force attempts. For production use, replace this with a centralized store (Redis) so counters persist across instances and restarts.
+- Password guidance: Registration now requires a minimum length of 8 characters to encourage passphrases (per NIST recommendations favoring longer passphrases). Consider adding password strength feedback and checks against breached password lists.
+- Authentication hardening: NextAuth is configured to use JWT sessions with a reduced `maxAge` (24 hours) and the credentials provider tracks failed login attempts per-user and blocks after repeated failures. Account lockout and notification behavior can be added as needed.
+
+Recommended next steps for production:
+
+- Use Redis (or another central store) for rate limiting and session/state management.
+- Enforce HTTPS at the hosting/load-balancer level and verify HSTS is appropriate for your deployment.
+- Add Multi-Factor Authentication (MFA) for user accounts — NIST recommends stronger authentication for privileged access.
+- Add audit logging for authentication events and admin alerts for suspicious activity.
+- Periodically run automated security scans (SAST/DAST) and dependency vulnerability checks.
+
+If you want, I can implement Redis-backed rate limiting and a TOTP-based MFA flow next.
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
