@@ -9,6 +9,7 @@ export default function LoginPage() {
     password: "",
   });
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
 
@@ -24,9 +25,18 @@ export default function LoginPage() {
     if (result?.error) {
       setError("Invalid email or password");
     } else {
-      router.push("/search");
+      router.push("/profile");
     }
     setLoading(false);
+  }
+
+  async function handleGoogleSignIn() {
+    setGoogleLoading(true);
+    try {
+      await signIn("google", { callbackUrl: "/onboarding/role" });
+    } finally {
+      setGoogleLoading(false);
+    }
   }
 
   return (
@@ -55,6 +65,14 @@ export default function LoginPage() {
           disabled={loading}
         >
           {loading ? "Logging in..." : "Login"}
+        </button>
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
+          className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 font-semibold py-2 px-6 rounded-lg shadow-sm transition-colors disabled:opacity-70"
+          disabled={googleLoading}
+        >
+          {googleLoading ? "Redirecting to Google..." : "Sign in with Google"}
         </button>
         {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
       </form>

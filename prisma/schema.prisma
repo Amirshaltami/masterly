@@ -77,6 +77,7 @@ model UserSkill {
   id           String @id @default(cuid())
   userId       String
   skillId      String
+  role         String @default("teach") // "teach", "learn", "both"
   level        String // "beginner", "intermediate", "advanced", "expert"
   yearsOfExperience Int?
   description  String?
@@ -117,6 +118,23 @@ model Meeting {
   
   organizer   User     @relation("Organizer", fields: [organizerId], references: [id], onDelete: Cascade)
   attendee    User     @relation("Attendee", fields: [attendeeId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id                     String   @id @default(cuid())
+  userId                 String
+  instructorId           String?
+  kind                   String   // "subscription" | "session"
+  status                 String   // "pending" | "paid" | "failed"
+  amount                 Int
+  currency               String   @default("usd")
+  stripeCheckoutSessionId String? @unique
+  stripePaymentIntentId  String?
+  stripeInvoiceId        String?
+  stripeSubscriptionId   String?
+  paymentMethodType      String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 }
 
 model VerificationToken {

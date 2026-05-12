@@ -9,14 +9,16 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const body = await req.json();
-    const zoomLink = body?.zoomLink || body?.googleMeetLink;
+
+    const { googleMeetLink } = await req.json();
     await prisma.user.update({
       where: { email: session.user.email },
-      data: { zoomLink },
+      // Backward-compatible DB column name storing meeting link.
+      data: { zoomLink: googleMeetLink },
     });
+
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to update meeting link" }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "Failed to update Google Meet link" }, { status: 500 });
   }
 }

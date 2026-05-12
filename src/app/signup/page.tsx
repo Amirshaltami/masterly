@@ -1,6 +1,13 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
+import { PASSWORD_POLICY, validatePassword } from "@/lib/passwordPolicy";
+
+const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+const isGoogleConfigured =
+  Boolean(process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED) ||
+  (Boolean(googleClientId) && !googleClientId?.startsWith("your_"));
 
 export default function SignupPage() {
   const [form, setForm] = useState({
@@ -10,11 +17,13 @@ export default function SignupPage() {
   isInstructor: false,
   location: "",
   skill: "",
-  zoomLink: "",
+  googleMeetLink: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const router = useRouter();
   const [redirecting, setRedirecting] = useState(false);
 
@@ -23,6 +32,13 @@ export default function SignupPage() {
     setLoading(true);
     setError("");
     setSuccess(false);
+    const localPasswordErrors = validatePassword(form.password, form.email);
+    setPasswordErrors(localPasswordErrors);
+    if (localPasswordErrors.length > 0) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
@@ -31,6 +47,9 @@ export default function SignupPage() {
       });
       if (!res.ok) {
         const data = await res.json();
+        if (Array.isArray(data.errors)) {
+          setPasswordErrors(data.errors);
+        }
         setError(data.error || "Signup failed");
       } else {
         setSuccess(true);
@@ -43,10 +62,23 @@ export default function SignupPage() {
           }
         }, 2000);
       }
-    } catch (err) {
+    } catch {
       setError("Network error");
     }
     setLoading(false);
+  }
+
+  async function handleGoogleSignup() {
+    if (!isGoogleConfigured) {
+      setError("Google sign-up is not configured yet. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local.");
+      return;
+    }
+    setGoogleLoading(true);
+    try {
+      await signIn("google", { callbackUrl: "/onboarding/role" });
+    } finally {
+      setGoogleLoading(false);
+    }
   }
 
   return (
@@ -74,15 +106,27 @@ export default function SignupPage() {
           placeholder="Password"
           className="border rounded px-4 py-2"
           value={form.password}
-          onChange={e => setForm({ ...form, password: e.target.value })}
+          onChange={e => {
+            const password = e.target.value;
+            setForm({ ...form, password });
+            setPasswordErrors(validatePassword(password, form.email));
+          }}
           required
         />
+        <div className="text-xs text-gray-600 bg-gray-50 border rounded p-3">
+          <p className="font-semibold mb-1">Password rules:</p>
+          <ul className="list-disc list-inside space-y-1">
+            {PASSWORD_POLICY.rules.map((rule) => (
+              <li key={rule}>{rule}</li>
+            ))}
+          </ul>
+        </div>
         <input
           type="text"
-          placeholder="Zoom link (instructors only)"
+          placeholder="Google Meet link (instructors only)"
           className="border rounded px-4 py-2"
-          value={form.zoomLink}
-          onChange={e => setForm({ ...form, zoomLink: e.target.value })}
+          value={form.googleMeetLink}
+          onChange={e => setForm({ ...form, googleMeetLink: e.target.value })}
         />
         <label className="flex items-center gap-2">
           <input
@@ -119,7 +163,27 @@ export default function SignupPage() {
         >
           {loading ? "Signing up..." : "Sign Up"}
         </button>
+        <button
+          type="button"
+          onClick={handleGoogleSignup}
+          className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 font-semibold py-2 px-6 rounded-lg shadow-sm transition-colors disabled:opacity-70"
+          disabled={googleLoading}
+        >
+          {googleLoading ? "Redirecting to Google..." : "Sign up with Google"}
+        </button>
+        {!isGoogleConfigured && (
+          <p className="text-amber-700 text-xs mt-1">
+            Configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local to enable this.
+          </p>
+        )}
         {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
+        {passwordErrors.length > 0 && (
+          <div className="text-red-600 text-sm mt-2">
+            {passwordErrors.map((msg) => (
+              <p key={msg}>{msg}</p>
+            ))}
+          </div>
+        )}
         {success && form.isInstructor && (
           <p className="text-green-600 text-sm mt-2">Signup successful! Redirecting you to your profile page.</p>
         )}

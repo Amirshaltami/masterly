@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,14 +9,19 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
     const body = await req.json();
-    const zoomLink = body?.zoomLink || body?.googleMeetLink;
-    await prisma.user.update({
+    const isInstructor = body?.role === "instructor";
+
+    const user = await prisma.user.update({
       where: { email: session.user.email },
-      data: { zoomLink },
+      data: { isInstructor },
+      select: { id: true, isInstructor: true },
     });
-    return NextResponse.json({ success: true });
+
+    return NextResponse.json(user);
   } catch (error) {
-    return NextResponse.json({ error: "Failed to update meeting link" }, { status: 500 });
+    console.error("Failed to update role:", error);
+    return NextResponse.json({ error: "Failed to update role" }, { status: 500 });
   }
 }
